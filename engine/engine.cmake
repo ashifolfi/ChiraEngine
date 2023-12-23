@@ -69,8 +69,10 @@ endif()
 
 # Figure out what render backend we are using
 if(CHIRA_RENDER_BACKEND STREQUAL "AUTO")
-    if(WIN32 OR UNIX)
+    if(UNIX)
         set(CHIRA_RENDER_BACKEND "GL43" CACHE STRING "" FORCE)
+	elseif(WIN32)
+		set(CHIRA_RENDER_BACKEND "DX11" CACHE STRING "" FORCE)
     elseif(APPLE)
         set(CHIRA_RENDER_BACKEND "GL41" CACHE STRING "" FORCE)
     else()
@@ -117,6 +119,34 @@ elseif(CHIRA_RENDER_BACKEND STREQUAL "SDLRENDERER")
 
     # Add ImGui platform
     imgui_impl(sdlrenderer)
+elseif(CHIRA_RENDER_BACKEND MATCHES "^DX(11|12)$")
+	if(UNIX OR APPLE) # you never know
+        message(FATAL_ERROR "DirectX is only supported on Windows!")
+    endif()
+
+    # setup the corresponding version
+	if(CHIRA_RENDER_BACKEND STREQUAL "DX11")
+		list(APPEND CHIRA_ENGINE_DEFINITIONS CHIRA_USE_RENDER_BACKEND_DX11)
+
+        # ShaderTranspiler
+        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/ShaderTranspiler)
+        list(APPEND CHIRA_ENGINE_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/ShaderTranspiler/include)
+        list(APPEND CHIRA_ENGINE_LINK_LIBRARIES ShaderTranspiler)
+
+        # DirectXMath
+        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/DirectXMath)
+        list(APPEND CHIRA_ENGINE_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/DirectXMath/Inc)
+
+        # Direct3D 11
+        list(APPEND CHIRA_ENGINE_LINK_LIBRARIES 
+            d3d11.lib dxgi.lib dxguid.lib DirectXMath)
+
+		imgui_impl(dx11)
+	elseif(CHIRA_RENDER_BACKEND STREQUAL "DX12")
+		list(APPEND CHIRA_ENGINE_DEFINITIONS CHIRA_USE_RENDER_BACKEND_DX12)
+		imgui_impl(dx12)
+        message(FATAL_ERROR "DX12 is currently unsupported! (please contribute!)")
+	endif()
 else()
     message(FATAL_ERROR "Unrecognized render backend ${CHIRA_RENDER_BACKEND_OVERRIDE}")
 endif()
