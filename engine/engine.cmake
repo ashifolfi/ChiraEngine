@@ -39,6 +39,13 @@ list(APPEND IMGUI_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/thirdparty/imguizmo/ImSequencer.cpp)
 list(APPEND CHIRA_ENGINE_DEFINITIONS IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 
+macro(imgui_impl IMPLNAME)
+	list(APPEND IMGUI_HEADERS
+            ${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/imgui/backends/imgui_impl_${IMPLNAME}.h)
+    list(APPEND IMGUI_SOURCES
+            ${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/imgui/backends/imgui_impl_${IMPLNAME}.cpp)
+endmacro()
+
 # Add device backends
 if(CHIRA_RENDER_DEVICE STREQUAL "SDL2")
     # SDL2
@@ -62,8 +69,10 @@ endif()
 
 # Figure out what render backend we are using
 if(CHIRA_RENDER_BACKEND STREQUAL "AUTO")
-    if(WIN32 OR UNIX)
+    if(UNIX)
         set(CHIRA_RENDER_BACKEND "GL43" CACHE STRING "" FORCE)
+	elseif(WIN32)
+		set(CHIRA_RENDER_BACKEND "DX11" CACHE STRING "" FORCE)
     elseif(APPLE)
         set(CHIRA_RENDER_BACKEND "GL41" CACHE STRING "" FORCE)
     else()
@@ -74,9 +83,9 @@ endif()
 message(STATUS "Setting render backend to ${CHIRA_RENDER_BACKEND}.")
 
 # Set up that backend
-if((CHIRA_RENDER_BACKEND STREQUAL "GL40") OR (CHIRA_RENDER_BACKEND STREQUAL "GL41") OR (CHIRA_RENDER_BACKEND STREQUAL "GL43"))
+if(CHIRA_RENDER_BACKEND MATCHES "^GL(40|41|43)$")
     # macOS: OpenGL 4.0, 4.1
-    # Windows and Linux: OpenGL 4.0, 4.1, 4.3
+    # Windows & Linux: OpenGL 4.0, 4.1, 4.3
     list(APPEND CHIRA_ENGINE_DEFINITIONS CHIRA_USE_RENDER_BACKEND_GL)
     if(APPLE AND CHIRA_RENDER_BACKEND STREQUAL "GL43")
         message(WARNING "GL43 is not supported on Apple! Falling back to GL41...")
@@ -93,6 +102,8 @@ if((CHIRA_RENDER_BACKEND STREQUAL "GL40") OR (CHIRA_RENDER_BACKEND STREQUAL "GL4
         set(GLAD_GL_VERSION "40")
         list(APPEND CHIRA_ENGINE_DEFINITIONS CHIRA_USE_RENDER_BACKEND_GL40)
     endif()
+    # HACK?: Temporarily set backend value to GL
+    set(CHIRA_RENDER_BACKEND "GL")
 
     # GLAD
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/glad)
@@ -101,19 +112,41 @@ if((CHIRA_RENDER_BACKEND STREQUAL "GL40") OR (CHIRA_RENDER_BACKEND STREQUAL "GL4
     list(APPEND CHIRA_ENGINE_LINK_LIBRARIES glad)
 
     # Add ImGui platform
-    list(APPEND IMGUI_HEADERS
-            ${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/imgui/backends/imgui_impl_opengl3.h)
-    list(APPEND IMGUI_SOURCES
-            ${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/imgui/backends/imgui_impl_opengl3.cpp)
+    imgui_impl(opengl3)
 elseif(CHIRA_RENDER_BACKEND STREQUAL "SDLRENDERER")
     message(WARNING "Render backend set to SDLRENDERER. Many rendering features will be unavailable! Only use this if necessary!")
     list(APPEND CHIRA_ENGINE_DEFINITIONS CHIRA_USE_RENDER_BACKEND_SDLRENDERER)
 
     # Add ImGui platform
-    list(APPEND IMGUI_HEADERS
-            ${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/imgui/backends/imgui_impl_sdlrenderer.h)
-    list(APPEND IMGUI_SOURCES
-            ${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/imgui/backends/imgui_impl_sdlrenderer.cpp)
+    imgui_impl(sdlrenderer)
+elseif(CHIRA_RENDER_BACKEND MATCHES "^DX(11|12)$")
+	if(UNIX OR APPLE) # you never know
+        message(FATAL_ERROR "DirectX is only supported on Windows!")
+    endif()
+
+    # setup the corresponding version
+	if(CHIRA_RENDER_BACKEND STREQUAL "DX11")
+		list(APPEND CHIRA_ENGINE_DEFINITIONS CHIRA_USE_RENDER_BACKEND_DX11)
+
+        # ShaderTranspiler
+        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/ShaderTranspiler)
+        list(APPEND CHIRA_ENGINE_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/ShaderTranspiler/include)
+        list(APPEND CHIRA_ENGINE_LINK_LIBRARIES ShaderTranspiler)
+
+        # DirectXMath
+        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/DirectXMath)
+        list(APPEND CHIRA_ENGINE_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/engine/thirdparty/DirectXMath/Inc)
+
+        # Direct3D 11
+        list(APPEND CHIRA_ENGINE_LINK_LIBRARIES 
+            d3d11.lib dxgi.lib dxguid.lib DirectXMath)
+
+		imgui_impl(dx11)
+	elseif(CHIRA_RENDER_BACKEND STREQUAL "DX12")
+		list(APPEND CHIRA_ENGINE_DEFINITIONS CHIRA_USE_RENDER_BACKEND_DX12)
+		imgui_impl(dx12)
+        message(FATAL_ERROR "DX12 is currently unsupported! (please contribute!)")
+	endif()
 else()
     message(FATAL_ERROR "Unrecognized render backend ${CHIRA_RENDER_BACKEND_OVERRIDE}")
 endif()

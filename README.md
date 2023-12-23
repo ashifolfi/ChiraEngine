@@ -56,7 +56,7 @@ by Apple's version of Clang.
 
 | Platform          | OpenGL 4.0 | OpenGL 4.1 | OpenGL 4.3 |  D3D11  | Software |
 |-------------------|:----------:|:----------:|:----------:|:-------:|:--------:|
-| Windows           |     ✔      |     ✔      |     ✔      | Planned |   ✔\*    |
+| Windows           |     ✔      |     ✔      |     ✔      | ✔ |   ✔\*    |
 | Linux             |     ✔      |     ✔      |     ✔      |    -    |   ✔\*    |
 | macOS             |     ✔      |     ✔      |     -      |    -    |   ✔\*    |
 
