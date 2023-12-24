@@ -1,9 +1,11 @@
 #include "CommandLine.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <vector>
-#include <config/ConEntry.h>
-#include "Logger.h"
+
+#include "config/ConEntry.h"
+#include "debug/Logger.h"
 
 using namespace chira;
 
@@ -74,6 +76,13 @@ void CommandLine::init(int argc, const char* argv[]) {
     }
 }
 
+std::string_view CommandLine::at(unsigned int index) {
+	if (g_Arguments.size() <= index) {
+		return "";
+	}
+	return g_Arguments.at(index);
+}
+
 bool CommandLine::has(std::string_view argument) {
     if (g_Arguments.size() <= 1) {
         return false;
@@ -114,5 +123,6 @@ std::string_view CommandLine::getDefaultArgumentOr(std::string_view default_) {
 }
 
 std::string_view CommandLine::getProgramName() {
-    return g_Arguments.at(0);
+	static std::string programName = std::filesystem::path{g_Arguments.at(0)}.stem().string();
+    return programName;
 }
